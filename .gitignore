@@ -1,0 +1,38 @@
+# Python bytecode files
+*.pyc
+*.pyo
+__pycache__/
+
+# Python virtual environment folders
+venv/
+env/
+.venv/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# mypy
+.mypy_cache/
+
+# pytest
+.cache/
+
+# IDE files
+.vscode/
+.idea/
+
+# Jupyter Notebook files
+.ipynb_checkpoints/
+
+
+# Logs
+*.log
+

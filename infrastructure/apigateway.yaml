@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creating APIGateway for serverless-feedback-system"
+
+Parameters:
+  APIGatewayName:
+    Type: String
+    Default: "Feedback-APIGateway"
+  SubmitFeedbackLambdaFunctionName:
+    Type: String
+    Default: "Feedback_SubmitFunction"
+
+
+
+Resources:
+  ApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/apigateway/${APIGatewayName}"
+      RetentionInDays: 7
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Ref APIGatewayName
+      Description: REST API for serverless-feedback-system
+      EndpointConfiguration:
+        Types: 
+          - REGIONAL
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+
+  SubmitFeedbackApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: submitfeedback 
+
+  SubmitFeedbackNameMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref SubmitFeedbackApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE 
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${SubmitFeedbackLambdaFunctionName}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  SubmitFeedbackApiOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref SubmitFeedbackApiResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'POST'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: 
+      - SubmitFeedbackNameMethod
+      - SubmitFeedbackApiOptionsMethod
+    Properties:
+      RestApiId: !Ref ApiGateway
+      Description: "Deployment for serverless-feedback-system"
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: dev
+      RestApiId: !Ref ApiGateway
+      DeploymentId: !Ref ApiDeployment
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiGatewayLogGroup.Arn
+        Format: '{ "requestId":"$context.requestId", "ip": "$context.identity.sourceIp", "caller":"$context.identity.caller", "requestTime":"$context.requestTime", "httpMethod":"$context.httpMethod", "resourcePath":"$context.resourcePath", "status":"$context.status", "protocol":"$context.protocol", "responseLength":"$context.responseLength" }\n'
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+          MetricsEnabled: true
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+
+  SubmitFeedbackLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${SubmitFeedbackLambdaFunctionName}
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*"
+
+
+
+Outputs:
+  SubmitFeedbackAPIEndpoint:
+    Description: "Submitfeedback APIEndpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/dev/submitfeedback"
+
+
+

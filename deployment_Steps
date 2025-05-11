@@ -1,0 +1,23 @@
+🚀 Deployment Steps
+Make sure the AWS CLI is configured (aws configure) before running these commands.
+
+1) Create IAM Role
+aws cloudformation create-stack --stack-name Feedback-System-IAM-Stack --template-body file://iam.yaml --capabilities CAPABILITY_NAMED_IAM
+
+
+2) Create Dynamodb Tables 
+aws cloudformation create-stack --stack-name Feedback-System-Dynamodb-Stack --template-body file://dynamodb.yaml --capabilities CAPABILITY_NAMED_IAM
+
+
+
+3) SUBMITFEEDBACK lambda
+aws cloudformation create-stack --stack-name Feedback-System-Submit-lambda-Stack --template-body file://submit_feedback_lambda.yaml --capabilities CAPABILITY_NAMED_IAM
+
+
+
+16) API gateway
+aws cloudformation create-stack --stack-name Feedback-System-APIGateway-Stack --template-body file://apigateway.yaml --capabilities CAPABILITY_NAMED_IAM
+
+
+
+

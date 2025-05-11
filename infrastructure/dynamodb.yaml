@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creating DynamoDB Table for serverless-feedback-system"
+
+Parameters:
+  FeedbackTableName:
+    Type: String
+    Description: Name of Table
+    Default: "FeedbackTable"
+  RatingTableName:
+    Type: String
+    Description: Name of Table
+    Default: "FeedbackRatingStatsTable"
+
+
+Resources:
+  FeedbackTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref FeedbackTableName
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: product_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ProductIndex
+          KeySchema:
+            - AttributeName: product_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+
+
+  RatingStatsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref RatingTableName
+      AttributeDefinitions:
+        - AttributeName: product_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: product_id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
