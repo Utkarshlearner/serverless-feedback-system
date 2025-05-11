@@ -4,14 +4,19 @@ Make sure the AWS CLI is configured (aws configure) before running these command
 1) Create IAM Role
 aws cloudformation create-stack --stack-name Feedback-System-IAM-Stack --template-body file://iam.yaml --capabilities CAPABILITY_NAMED_IAM
 
+aws cloudformation update-stack --stack-name Feedback-System-IAM-Stack --template-body file://iam.yaml --capabilities CAPABILITY_NAMED_IAM
 
 2) Create Dynamodb Tables 
-aws cloudformation create-stack --stack-name Feedback-System-Dynamodb-Stack --template-body file://dynamodb.yaml --capabilities CAPABILITY_NAMED_IAM
+aws cloudformation create-stack --stack-name Feedback-System-Dynamodb-Stack --template-body  file://dynamodb.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
 
 3) SUBMITFEEDBACK lambda
 aws cloudformation create-stack --stack-name Feedback-System-Submit-lambda-Stack --template-body file://submit_feedback_lambda.yaml --capabilities CAPABILITY_NAMED_IAM
+
+
+4) FeedbackAggregator lambda
+aws cloudformation create-stack --stack-name Feedback-System-RatingAggregator-lambda-Stack --template-body file://feedback_ratingaggregator_lambda.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
 

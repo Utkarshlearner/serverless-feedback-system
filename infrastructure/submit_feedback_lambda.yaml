@@ -76,7 +76,7 @@ Resources:
                 except Exception as e:
                     return response(500, {'message': 'Error writing to database', 'error': str(e)})
 
-              return response(200, {'message': 'Feedback submitted successfully'})
+                return response(200, {'message': 'Feedback submitted successfully'})
 
             except Exception as e:
                 return response(500, {'message': 'Unexpected error occurred', 'error': str(e)})

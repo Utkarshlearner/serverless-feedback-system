@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Creating Lambda for serverless-feedback-system"
+
+Parameters:
+  LambdaRoleName:
+    Type: String
+    Description: RoleName
+    Default: "feedback-rating-lambda-role"
+  LambdaName:
+    Type: String
+    Description: LambdaName
+    Default: "Feedback_RatingAggregator"
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaName
+      Handler: index.lambda_handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/${LambdaRoleName}
+      Runtime: python3.9
+      Timeout: 300
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          from decimal import Decimal
+          from datetime import datetime
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table('FeedbackRatingStatsTable')
+
+          def lambda_handler(event, context):
+              try:
+                print("Received event:", json.dumps(event))
+
+                for record in event['Records']:
+                      try:
+                          print("Processing record:", json.dumps(record))
+
+                          if record['eventName'] != 'INSERT':
+                              print("Skipping non-insert event")
+                              continue
+
+                          new_image = record['dynamodb']['NewImage']
+                          product_id = new_image['product_id']['S']
+                          rating = int(new_image['rating']['N'])
+
+                          print(f"Product ID: {product_id}, New Rating: {rating}")
+
+                          # Get existing stats for product
+                          response = table.get_item(Key={'product_id': product_id})
+                          item = response.get('Item')
+
+                          if item:
+                              rating_sum = int(item.get('rating_sum', 0)) + rating
+                              rating_count = int(item.get('rating_count', 0)) + 1
+                              print(f"Updating existing record. New Sum: {rating_sum}, Count: {rating_count}")
+                          else:
+                              rating_sum = rating
+                              rating_count = 1
+                              print("Creating new rating record.")
+
+                          average = round(rating_sum / rating_count, 2)
+
+                          table.put_item(Item={
+                              'product_id': product_id,
+                              'rating_sum': rating_sum,
+                              'rating_count': rating_count,
+                              'average': Decimal(str(average)),
+                              'last_updated': datetime.utcnow().isoformat()
+                          })
+
+                          print(f"Rating stats updated for product {product_id}: Avg = {average}")
+
+                      except Exception as e:
+                          print(f"Error processing record: {json.dumps(record)}")
+                          print(f"Error details: {str(e)}")
+
+                return {
+                      'statusCode': 200,
+                      'body': json.dumps({'message': 'Stream processing completed'})
+                }
+
+              except Exception as e:
+                  print("Fatal error during Lambda execution:")
+                  print(f"Error details: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': 'Failed to process stream records', 'details': str(e)})
+                  }
+     
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${LambdaName}
+      RetentionInDays: 1
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+
+  StreamMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      EventSourceArn: !ImportValue FeedbackTable-StreamArn
+      FunctionName: !GetAtt LambdaFunction.Arn
+      StartingPosition: LATEST

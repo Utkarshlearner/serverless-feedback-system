@@ -43,6 +43,10 @@ Resources:
                   - "dynamodb:Query"
                   - "dynamodb:BatchGetItem"
                   - "dynamodb:UpdateItem"
+                  - "dynamodb:GetRecords"
+                  - "dynamodb:DescribeStream"
+                  - "dynamodb:GetShardIterator"
+                  - "dynamodb:ListStreams"
                 Resource: 
                   - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Feedback*"
               - Effect: "Allow"
