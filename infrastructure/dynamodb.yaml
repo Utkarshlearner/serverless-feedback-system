@@ -11,27 +11,21 @@ Parameters:
     Description: Name of Table
     Default: "FeedbackRatingStatsTable"
 
-
 Resources:
   FeedbackTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: !Ref FeedbackTableName
       AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
         - AttributeName: product_id
           AttributeType: S
+        - AttributeName: user_id
+          AttributeType: S
       KeySchema:
-        - AttributeName: id
+        - AttributeName: product_id
           KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: ProductIndex
-          KeySchema:
-            - AttributeName: product_id
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
+        - AttributeName: user_id
+          KeyType: RANGE
       BillingMode: PAY_PER_REQUEST
       StreamSpecification:
         StreamViewType: NEW_IMAGE

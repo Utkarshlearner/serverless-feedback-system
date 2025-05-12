@@ -5,39 +5,34 @@ Make sure the AWS CLI is configured (aws configure) before running these command
 aws cloudformation create-stack --stack-name Feedback-System-S3-Stack --template-body file://s3.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
-
-
-1) Create IAM Role
+2) Create IAM Role
 aws cloudformation create-stack --stack-name Feedback-System-IAM-Stack --template-body file://iam.yaml --capabilities CAPABILITY_NAMED_IAM
 
-aws cloudformation update-stack --stack-name Feedback-System-IAM-Stack --template-body file://iam.yaml --capabilities CAPABILITY_NAMED_IAM
 
-2) Create Dynamodb Tables 
+3) Create Dynamodb Tables 
 aws cloudformation create-stack --stack-name Feedback-System-Dynamodb-Stack --template-body  file://dynamodb.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
-
-3) SUBMITFEEDBACK lambda
+4) SUBMITFEEDBACK lambda
 aws cloudformation create-stack --stack-name Feedback-System-Submit-lambda-Stack --template-body file://submit_feedback_lambda.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
-4) FeedbackAggregator lambda
+5) FeedbackAggregator lambda
 aws cloudformation create-stack --stack-name Feedback-System-RatingAggregator-lambda-Stack --template-body file://feedback_ratingaggregator_lambda.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
-5) FeedbackAggregator lambda
+6) FeedbackRetriever lambda
 aws cloudformation create-stack --stack-name Feedback-System-Retriever-lambda-Stack --template-body file://get_feedbackby_product_id.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
-aws cloudformation update-stack --stack-name Feedback-System-Retriever-lambda-Stack --template-body file://get_feedbackby_product_id.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
-5) RatingSummary lambda
+7) RatingSummary lambda
 aws cloudformation create-stack --stack-name Feedback-System-RatingSummary-lambda-Stack --template-body file://get_ratingsummary_product_id.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
 
-16) API gateway
+8) API gateway
 aws cloudformation create-stack --stack-name Feedback-System-APIGateway-Stack --template-body file://apigateway.yaml --capabilities CAPABILITY_NAMED_IAM
 
 

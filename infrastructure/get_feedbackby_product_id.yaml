@@ -57,7 +57,6 @@ Resources:
                   end_date = body.get('end_date')
 
                   if not product_id:
-                      print("Missing product_id in request body")
                       return {'statusCode': 400, 'body': json.dumps({'error': 'Missing product_id'})}
 
                   # Validate date format if provided
@@ -65,80 +64,49 @@ Resources:
                       try:
                           start_date_obj = datetime.strptime(start_date, "%Y-%m-%d")
                           end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
-
                           if end_date_obj < start_date_obj:
-                              return {
-                                  'statusCode': 400,
-                                  'body': json.dumps({'error': 'end_date must be equal to or after start_date'})
-                              }
-
+                              return {'statusCode': 400, 'body': json.dumps({'error': 'end_date must be after start_date'})}
                       except ValueError:
-                          return {
-                              'statusCode': 400,
-                              'body': json.dumps({'error': 'Dates must be in YYYY-MM-DD format'})
-                          }
+                          return {'statusCode': 400, 'body': json.dumps({'error': 'Invalid date format (use YYYY-MM-DD)'})}
 
                   print(f"Querying feedback for product_id: {product_id}")
                   key_expr = Key('product_id').eq(product_id)
                   filter_expr = None
 
                   if start_date and end_date:
-                      print(f"Applying date filter: from {start_date} to {end_date}")
                       filter_expr = Attr('created_at').between(start_date + "T00:00:00", end_date + "T23:59:59")
 
+                  # Query the table
                   if filter_expr:
                       response = table.query(
-                          IndexName='ProductIndex',
                           KeyConditionExpression=key_expr,
                           FilterExpression=filter_expr
                       )
                   else:
                       response = table.query(
-                          IndexName='ProductIndex',
                           KeyConditionExpression=key_expr
                       )
 
-                  print("DynamoDB query response:", response)
                   items = response.get('Items', [])
-                  print(f"Number of feedback items found: {len(items)}")
-
                   items.sort(key=lambda x: x.get('created_at', ''), reverse=True)
                   data_json = json.dumps(items, cls=DecimalEncoder)
                   data_size = len(data_json.encode('utf-8'))
-                  print(f"Data size in bytes: {data_size}")
 
                   if data_size > 1024:
                       object_key = f"feedback/{product_id}-{uuid.uuid4()}.json"
-                      print(f"Uploading large data to S3 with key: {object_key}")
-
                       s3.put_object(Bucket=S3_BUCKET_NAME, Key=object_key, Body=data_json, ContentType='application/json')
-
                       presigned_url = s3.generate_presigned_url(
                           'get_object',
                           Params={'Bucket': S3_BUCKET_NAME, 'Key': object_key},
                           ExpiresIn=7200
                       )
+                      return {'statusCode': 200, 'body': json.dumps({'download_url': presigned_url})}
 
-                      print("Returning presigned URL")
-                      return {
-                          'statusCode': 200,
-                          'body': json.dumps({'download_url': presigned_url})
-                      }
-
-                  print("Returning data directly in response")
-                  return {
-                        'statusCode': 200,
-                        'body': data_json
-                  }
+                  return {'statusCode': 200, 'body': data_json}
 
               except Exception as e:
-                  print("Error occurred:", str(e))
-                  return {
-                      'statusCode': 500,
-                      'body': json.dumps({'error': 'Internal server error', 'details': str(e)})
-                  }
-
-          
+                  print("Error:", str(e))
+                  return {'statusCode': 500, 'body': json.dumps({'error': 'Internal server error', 'details': str(e)})}
 
   LogGroup:
     Type: AWS::Logs::LogGroup
