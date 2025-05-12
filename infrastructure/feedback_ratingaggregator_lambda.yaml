@@ -37,34 +37,58 @@ Resources:
 
           def lambda_handler(event, context):
               try:
-                print("Received event:", json.dumps(event))
+                  print("Received event:", json.dumps(event))
 
-                for record in event['Records']:
+                  for record in event['Records']:
                       try:
                           print("Processing record:", json.dumps(record))
+                          event_name = record['eventName']
 
-                          if record['eventName'] != 'INSERT':
-                              print("Skipping non-insert event")
+                          if event_name not in ['INSERT', 'REMOVE']:
+                              print("Skipping non-insert/remove event")
                               continue
 
-                          new_image = record['dynamodb']['NewImage']
-                          product_id = new_image['product_id']['S']
-                          rating = int(new_image['rating']['N'])
+                          if event_name == 'INSERT':
+                              image = record['dynamodb']['NewImage']
+                              delta = int(image['rating']['N'])
+                              adjustment = 1
+                              print("Processing INSERT event")
 
-                          print(f"Product ID: {product_id}, New Rating: {rating}")
+                          elif event_name == 'REMOVE':
+                              image = record['dynamodb']['OldImage']
+                              delta = -int(image['rating']['N'])
+                              adjustment = -1
+                              print("Processing REMOVE event")
 
-                          # Get existing stats for product
+                          product_id = image['product_id']['S']
+
+                          # Fetch existing stats
                           response = table.get_item(Key={'product_id': product_id})
                           item = response.get('Item')
 
-                          if item:
-                              rating_sum = int(item.get('rating_sum', 0)) + rating
-                              rating_count = int(item.get('rating_count', 0)) + 1
-                              print(f"Updating existing record. New Sum: {rating_sum}, Count: {rating_count}")
-                          else:
-                              rating_sum = rating
-                              rating_count = 1
-                              print("Creating new rating record.")
+                          if not item:
+                              if event_name == 'INSERT':
+                                  # First feedback for product
+                                  table.put_item(Item={
+                                      'product_id': product_id,
+                                      'rating_sum': delta,
+                                      'rating_count': adjustment,
+                                      'average': Decimal(str(round(delta, 2))),
+                                      'last_updated': datetime.utcnow().isoformat()
+                                  })
+                                  print("Created new stats record.")
+                              else:
+                                  print("REMOVE event but no stats record found. Skipping.")
+                              continue
+
+                          # Update stats
+                          rating_sum = int(item['rating_sum']) + delta
+                          rating_count = int(item['rating_count']) + adjustment
+
+                          if rating_count <= 0:
+                              print("No remaining feedback. Deleting stats record.")
+                              table.delete_item(Key={'product_id': product_id})
+                              continue
 
                           average = round(rating_sum / rating_count, 2)
 
@@ -76,16 +100,16 @@ Resources:
                               'last_updated': datetime.utcnow().isoformat()
                           })
 
-                          print(f"Rating stats updated for product {product_id}: Avg = {average}")
+                          print(f"Updated stats: Sum={rating_sum}, Count={rating_count}, Avg={average}")
 
                       except Exception as e:
                           print(f"Error processing record: {json.dumps(record)}")
                           print(f"Error details: {str(e)}")
 
-                return {
+                  return {
                       'statusCode': 200,
                       'body': json.dumps({'message': 'Stream processing completed'})
-                }
+                  }
 
               except Exception as e:
                   print("Fatal error during Lambda execution:")

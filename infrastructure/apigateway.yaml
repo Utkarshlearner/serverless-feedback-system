@@ -14,6 +14,9 @@ Parameters:
   RatingSymmaryRetrieverLambdaFunctionName:
     Type: String
     Default: "Feedback_GetRatingSummary"
+  DeleteFeedbackLambdaFunctionName:
+    Type: String
+    Default: "Feedback_CleanupFunction"
 
 
 
@@ -63,6 +66,29 @@ Resources:
       RestApiId: !Ref ApiGateway
       ParentId: !GetAtt ApiGateway.RootResourceId
       PathPart: getratingsummary 
+
+  DeleteFeedbackApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: deletefeedback
+
+  DeleteFeedbackNameMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref DeleteFeedbackApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE 
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${DeleteFeedbackLambdaFunctionName}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
 
   RatingSummaryRetrieverNameMethod:
     Type: AWS::ApiGateway::Method
@@ -185,6 +211,30 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Headers: true
 
+  DeleteFeedbackApiOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref DeleteFeedbackApiResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'POST'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
+
   ApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn: 
@@ -194,6 +244,8 @@ Resources:
       - FeedbackRetrieverApiOptionsMethod
       - RatingSummaryRetrieverNameMethod
       - RatingSummaryRetrieverApiOptionsMethod
+      - DeleteFeedbackNameMethod
+      - DeleteFeedbackApiOptionsMethod
     Properties:
       RestApiId: !Ref ApiGateway
       Description: "Deployment for serverless-feedback-system"
@@ -243,6 +295,14 @@ Resources:
       Principal: "apigateway.amazonaws.com"
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*"
 
+  DeleteFeedbackLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${DeleteFeedbackLambdaFunctionName}
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*"
+
 
 
 Outputs:
@@ -257,6 +317,10 @@ Outputs:
   RatingSummaryRetrieverAPIEndpoint:
     Description: "RatingSummaryRetriever APIEndpoint"
     Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/dev/getratingsummary"
+
+  DeleteFeedbackAPIEndpoint:
+    Description: "DeleteFeedback APIEndpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/dev/deletefeedback"
 
 
 

@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Creating Lambda for serverless-feedback-system"
+
+Parameters:
+  LambdaRoleName:
+    Type: String
+    Description: RoleName
+    Default: "feedback-rating-lambda-role"
+  LambdaName:
+    Type: String
+    Description: LambdaName
+    Default: "Feedback_CleanupFunction"
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaName
+      Handler: index.lambda_handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/${LambdaRoleName}
+      Runtime: python3.9
+      Timeout: 300
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+      Code:
+        ZipFile: |
+          from decimal import Decimal
+          import json
+          import boto3
+
+          # Custom encoder for Decimal objects
+          class DecimalEncoder(json.JSONEncoder):
+              def default(self, o):
+                  if isinstance(o, Decimal):
+                      # Choose float or int depending on your use case
+                      return float(o)
+                  return super(DecimalEncoder, self).default(o)
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table('FeedbackTable')
+
+          def lambda_handler(event, context):
+              print("Received event:", json.dumps(event))
+
+              try:
+                  body = event.get('body')
+                  if body:
+                      print("Parsing body from string.")
+                      body = json.loads(body)
+                  else:
+                      print("Body appears as raw dict.")
+                      body = event
+
+                  product_id = body.get('product_id')
+                  user_id = body.get('user_id')
+
+                  if not product_id or not user_id:
+                      print("Validation failed: Missing product_id or user_id.")
+                      return {
+                          'statusCode': 400,
+                          'body': json.dumps({'error': 'Missing product_id or user_id'})
+                      }
+
+                  print(f"Deleting feedback for Product ID: {product_id}, User ID: {user_id}")
+
+                  response = table.delete_item(
+                      Key={
+                          'product_id': product_id,
+                          'user_id': user_id
+                      },
+                      ReturnValues='ALL_OLD'
+                  )
+
+                  if 'Attributes' in response:
+                      print("Delete successful. Deleted item:", json.dumps(response['Attributes'], cls=DecimalEncoder))
+                      return {
+                          'statusCode': 200,
+                          'body': json.dumps({
+                              'message': 'Feedback deleted successfully',
+                              'deletedItem': response['Attributes']
+                          }, cls=DecimalEncoder)
+                      }
+                  else:
+                      print("Item not found to delete.")
+                      return {
+                          'statusCode': 404,
+                          'body': json.dumps({'message': 'Feedback not found'})
+                      }
+
+              except Exception as e:
+                  print("An error occurred:", str(e))
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': 'Failed to delete feedback', 'details': str(e)})
+                  }
+
+
+
+
+          
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${LambdaName}
+      RetentionInDays: 1
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
