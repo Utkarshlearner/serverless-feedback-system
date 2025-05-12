@@ -19,6 +19,9 @@ aws cloudformation create-stack --stack-name Feedback-System-Submit-lambda-Stack
 aws cloudformation create-stack --stack-name Feedback-System-RatingAggregator-lambda-Stack --template-body file://feedback_ratingaggregator_lambda.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
+5) FeedbackAggregator lambda
+aws cloudformation create-stack --stack-name Feedback-System-Retriever-lambda-Stack --template-body file://get_feedbackby_product_id.yaml --capabilities CAPABILITY_NAMED_IAM
+
 
 16) API gateway
 aws cloudformation create-stack --stack-name Feedback-System-APIGateway-Stack --template-body file://apigateway.yaml --capabilities CAPABILITY_NAMED_IAM

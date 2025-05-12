@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Creating Lambda for serverless-feedback-system"
+
+Parameters:
+  LambdaRoleName:
+    Type: String
+    Description: RoleName
+    Default: "feedback-rating-lambda-role"
+  LambdaName:
+    Type: String
+    Description: LambdaName
+    Default: "Feedback_RetrieverFunction"
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaName
+      Handler: index.lambda_handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/${LambdaRoleName}
+      Runtime: python3.9
+      Timeout: 300
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          import uuid
+          from boto3.dynamodb.conditions import Key, Attr
+          from datetime import datetime
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table('FeedbackTable')
+          s3 = boto3.client('s3')
+          S3_BUCKET_NAME = ''  
+
+          def get_feedback_by_product(product_id, start_date=None, end_date=None):
+              try:
+                  print(f"Fetching feedback for Product ID: {product_id}")
+
+                  key_expr = Key('product_id').eq(product_id)
+                  filter_expr = None
+
+                  # Apply date range filter if provided
+                  if start_date and end_date:
+                      # Assuming 'created_at' is in ISO 8601 format
+                      filter_expr = Attr('created_at').between(start_date, end_date)
+                      print(f"Filtering from {start_date} to {end_date}")
+
+                  if filter_expr:
+                      response = table.query(
+                          KeyConditionExpression=key_expr,
+                          FilterExpression=filter_expr
+                      )
+                  else:
+                      response = table.query(KeyConditionExpression=key_expr)
+
+                  items = response.get('Items', [])
+
+                  # Sort items by 'created_at' in descending order (latest first)
+                  items.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+                  data_json = json.dumps(items)
+
+                  # Upload to S3 if data is over 1 KB
+                  if len(data_json.encode('utf-8')) > 1024:
+                      object_key = f"feedback/{product_id}-{uuid.uuid4()}.json"
+                      s3.put_object(Bucket=S3_BUCKET_NAME, Key=object_key, Body=data_json, ContentType='application/json')
+
+                      presigned_url = s3.generate_presigned_url(
+                          'get_object',
+                          Params={'Bucket': S3_BUCKET_NAME, 'Key': object_key},
+                          ExpiresIn=7200  # 2 hours in seconds
+                      )
+
+                    return {
+                        'statusCode': 200,
+                        'body': json.dumps({'download_url': presigned_url})
+                    }
+
+                return {
+                    'statusCode': 200,
+                    'body': data_json
+                }
+
+              except Exception as e:
+                  print(f"Error retrieving feedback for product {product_id}: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': 'Failed to fetch feedback', 'details': str(e)})
+                  }
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${LambdaName}
+      RetentionInDays: 1
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
