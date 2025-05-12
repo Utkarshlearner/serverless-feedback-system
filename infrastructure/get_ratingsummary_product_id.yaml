@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Creating Lambda for serverless-feedback-system"
+
+Parameters:
+  LambdaRoleName:
+    Type: String
+    Description: RoleName
+    Default: "feedback-rating-lambda-role"
+  LambdaName:
+    Type: String
+    Description: LambdaName
+    Default: "Feedback_GetRatingSummary"
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaName
+      Handler: index.lambda_handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/${LambdaRoleName}
+      Runtime: python3.9
+      Timeout: 300
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          from decimal import Decimal
+          from boto3.dynamodb.conditions import Key
+
+          dynamodb = boto3.resource('dynamodb')
+          table = dynamodb.Table('FeedbackRatingStatsTable')
+
+          # Custom encoder to handle Decimal in DynamoDB
+          class DecimalEncoder(json.JSONEncoder):
+              def default(self, obj):
+                  if isinstance(obj, Decimal):
+                      return int(obj) if obj % 1 == 0 else float(obj)
+                  return super().default(obj)
+
+          def lambda_handler(event, context):
+              try:
+                  print("Received event:", event)
+                  
+                  body = json.loads(event.get('body', '{}'))
+                  product_id = body.get('product_id')
+
+                  if not product_id:
+                      print("Missing product_id in request body")
+                      return {
+                          'statusCode': 400,
+                          'body': json.dumps({'error': 'Missing product_id'})
+                      }
+
+                  print(f"Fetching rating summary for product_id: {product_id}")
+                  response = table.get_item(Key={'product_id': product_id})
+                  print("DynamoDB get_item response:", response)
+
+                  item = response.get('Item')
+
+                  if not item:
+                      return {
+                          'statusCode': 404,
+                          'body': json.dumps({'message': 'No rating data found for the given product'})
+                      }
+
+                  # Only return required fields
+                  result = {
+                      'product_id': item.get('product_id'),
+                      'rating_sum': item.get('rating_sum'),
+                      'count': item.get('rating_count'),
+                      'average': item.get('average')
+                  }
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps(result, cls=DecimalEncoder)
+                  }
+
+              except Exception as e:
+                  print("Error occurred:", str(e))
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': 'Internal server error', 'details': str(e)})
+                  }
+
+
+   
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${LambdaName}
+      RetentionInDays: 1
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
