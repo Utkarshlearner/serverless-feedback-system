@@ -8,6 +8,9 @@ Parameters:
   SubmitFeedbackLambdaFunctionName:
     Type: String
     Default: "Feedback_SubmitFunction"
+  FeedbackRetrieverLambdaFunctionName:
+    Type: String
+    Default: "Feedback_RetrieverFunction"
 
 
 
@@ -42,7 +45,14 @@ Resources:
     Properties:
       RestApiId: !Ref ApiGateway
       ParentId: !GetAtt ApiGateway.RootResourceId
-      PathPart: submitfeedback 
+      PathPart: submitfeedback
+   
+  FeedbackRetrieverApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: getfeedback 
 
   SubmitFeedbackNameMethod:
     Type: AWS::ApiGateway::Method
@@ -55,6 +65,22 @@ Resources:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${SubmitFeedbackLambdaFunctionName}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  FeedbackRetrieverNameMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref FeedbackRetrieverApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE 
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FeedbackRetrieverLambdaFunctionName}/invocations"
       MethodResponses:
         - StatusCode: 200
           ResponseParameters:
@@ -83,12 +109,38 @@ Resources:
             method.response.header.Access-Control-Allow-Origin: true
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Headers: true
+  
+  FeedbackRetrieverApiOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref FeedbackRetrieverApiResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'POST'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Headers: true
 
   ApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn: 
       - SubmitFeedbackNameMethod
       - SubmitFeedbackApiOptionsMethod
+      - FeedbackRetrieverNameMethod
+      - FeedbackRetrieverApiOptionsMethod
     Properties:
       RestApiId: !Ref ApiGateway
       Description: "Deployment for serverless-feedback-system"
@@ -122,12 +174,24 @@ Resources:
       Principal: "apigateway.amazonaws.com"
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*"
 
+  FeedbackRetrieverLambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FeedbackRetrieverLambdaFunctionName}
+      Action: "lambda:InvokeFunction"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*"
+
 
 
 Outputs:
   SubmitFeedbackAPIEndpoint:
     Description: "Submitfeedback APIEndpoint"
     Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/dev/submitfeedback"
+
+  FeedbackRetrieverAPIEndpoint:
+    Description: "FeedbackRetriever APIEndpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/dev/getfeedback"
 
 
 

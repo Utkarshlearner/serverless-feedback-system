@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Creating S3 for serverless-feedback-system"
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: "serverless-feedback-dev"
+
+Resources:
+  FeedbackBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteAfterOneDay
+            Status: Enabled
+            ExpirationInDays: 1
+            Prefix: ""  # Apply to all objects
+      Tags:
+        - Key: Project
+          Value: serverless-feedback-system
+        - Key: Environment
+          Value: Dev
+
+Outputs:
+  S3BucketName:
+    Value: !Ref FeedbackBucket
+

@@ -54,7 +54,19 @@ Resources:
                   - "logs:CreateLogGroup"
                   - "logs:CreateLogStream"
                   - "logs:PutLogEvents"
-                Resource: "*"  
+                Resource: "*"
+        - PolicyName: "AllowS3ReadWriteAccessForPresignedURL"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:ListBucket"
+                Resource: 
+                  - "arn:aws:s3:::serverless-feedback-dev"  
+                  - "arn:aws:s3:::serverless-feedback-dev/*"
       Tags:
         - Key: Project
           Value: serverless-feedback-system

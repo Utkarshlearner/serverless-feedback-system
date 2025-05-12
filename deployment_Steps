@@ -1,6 +1,12 @@
 🚀 Deployment Steps
 Make sure the AWS CLI is configured (aws configure) before running these commands.
 
+1) Create S3 Bucket
+aws cloudformation create-stack --stack-name Feedback-System-S3-Stack --template-body file://s3.yaml --capabilities CAPABILITY_NAMED_IAM
+
+
+
+
 1) Create IAM Role
 aws cloudformation create-stack --stack-name Feedback-System-IAM-Stack --template-body file://iam.yaml --capabilities CAPABILITY_NAMED_IAM
 
@@ -21,6 +27,9 @@ aws cloudformation create-stack --stack-name Feedback-System-RatingAggregator-la
 
 5) FeedbackAggregator lambda
 aws cloudformation create-stack --stack-name Feedback-System-Retriever-lambda-Stack --template-body file://get_feedbackby_product_id.yaml --capabilities CAPABILITY_NAMED_IAM
+
+
+aws cloudformation update-stack --stack-name Feedback-System-Retriever-lambda-Stack --template-body file://get_feedbackby_product_id.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
 16) API gateway
