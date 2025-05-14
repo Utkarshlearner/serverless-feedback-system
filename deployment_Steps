@@ -8,13 +8,9 @@ aws cloudformation create-stack --stack-name Feedback-System-S3-Stack --template
 2) Create IAM Role
 aws cloudformation create-stack --stack-name Feedback-System-IAM-Stack --template-body file://iam.yaml --capabilities CAPABILITY_NAMED_IAM
 
-aws cloudformation update-stack --stack-name Feedback-System-IAM-Stack --template-body file://iam.yaml --capabilities CAPABILITY_NAMED_IAM
-
 
 3) Create Dynamodb Tables 
 aws cloudformation create-stack --stack-name Feedback-System-Dynamodb-Stack --template-body  file://dynamodb.yaml --capabilities CAPABILITY_NAMED_IAM
-
-aws cloudformation update-stack --stack-name Feedback-System-Dynamodb-Stack --template-body  file://dynamodb.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
 4) SUBMITFEEDBACK lambda
@@ -33,7 +29,7 @@ aws cloudformation create-stack --stack-name Feedback-System-Retriever-lambda-St
 aws cloudformation create-stack --stack-name Feedback-System-RatingSummary-lambda-Stack --template-body file://get_ratingsummary_product_id.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
-8) RatingSummary lambda
+8) DeleteFeedback lambda
 aws cloudformation create-stack --stack-name Feedback-System-DeleteFeedback-lambda-Stack --template-body file://delete_feedback_lambda.yaml --capabilities CAPABILITY_NAMED_IAM
 
 
